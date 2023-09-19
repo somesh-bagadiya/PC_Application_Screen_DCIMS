@@ -38,42 +38,52 @@ def channelPage(channelNumber):
     new = tk.Toplevel()
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
+    print(screen_height, screen_width)
     x = (screen_width-(screen_width/2.5))/2
     y = (screen_height-(screen_height/2.5))/2
     new.configure(bg='#DBD9D5')
-    new.geometry('+%d+%d'%(x,y))
-    new.columnconfigure(0, weight=1, minsize=100)
-    new.rowconfigure(0, weight=1, minsize=75)
+    # new.geometry("{}x{}".format(screen_width, screen_height))
+    new.state('zoomed')
+    # new.columnconfigure(0, weight=1)
+    # new.rowconfigure(0, weight=1)
+    
+    # new = tk.Frame(new, borderwidth=2)
+    # new.grid(column=0, row=1, columnspan=2, sticky='NEWS')
     
     homeButton = tk.Button(new, text = 'Home',  font=("",10,"bold"), background="#6FB791", foreground="white", command=lambda: goHome(new))
     homeButton.grid(column=0, row=0, padx=5, sticky="W")
     
     dcimsLabel = ttk.Label(new, text="DCIMS", font=("",15,"bold"), background='#DBD9D5')
-    dcimsLabel.grid(column=1, row=0, padx=5, sticky="W")
+    dcimsLabel.grid(column=1, row=0, padx=5)
     f = tkFont.Font(custDetails, custDetails.cget("font"))
     f.configure(underline = True)
     dcimsLabel.configure(font=f)
     
     connFrame = tk.LabelFrame(new, relief="flat", background='#DBD9D5')
-    connFrame.grid(column=1, row=0, padx=5, sticky="E")
+    connFrame.grid(column=2, row=0, padx=5, sticky="E")
     connection = ttk.Label(connFrame, text="Connection:", font=("",12,""), background='#DBD9D5')
     connection.grid(column=0, row=0, sticky='E')
     connectionStatus = ttk.Label(connFrame, text=" Live ", font=("",11,""), background="#6FB791", foreground="white", relief="sunken")
     connectionStatus.grid(column=1, row=0, padx=5, pady=5, sticky='W')
     
     chanNumb = ttk.Label(new, text=" CH{} ".format(channelNumber), padding=3, font=("",12,"italic"), background="#9FF961", foreground="#424EBC", relief="groove")
-    chanNumb.grid(column=1, row=1, sticky='W')
+    chanNumb.grid(column=1, row=1)
     
     #-----------------------------------
     
-    graph1 = tk.Frame(new)
-    graph1.grid(column=0, row=2, padx=5, pady=5, sticky='W')
+    graph = tk.Frame(new)
+    graph.grid(column=0, row=2, columnspan=3, padx=5, pady=5, sticky='W')
     
-    fig = Figure(figsize = (6, 3.5), dpi = 100, animated=True)
+    graph1 = tk.Frame(graph)
+    graph1.grid(column=0, row=1, padx=5, pady=5, sticky='W')
+    
+    px = 1/plt.rcParams['figure.dpi']  # pixel in inches
+    fig = Figure(figsize = ((screen_width/1.4)*px, (screen_height/3.5)*px), dpi = 100, animated=True)
     y = [1,100,200,500,1000]
     x = ["12 oct","13 oct", "14 oct", "15 oct", "16 oct"]
+    fig.tight_layout()
     plot1 = fig.add_subplot(111, xlabel="Date", ylabel="KOhms")
-    plt.xlim([0,10])
+    fig.tight_layout()
     plot1.plot(x,y)
     
     canvas1 = FigureCanvasTkAgg(fig, master=graph1)  
@@ -82,13 +92,15 @@ def channelPage(channelNumber):
     
     #-----------------------------------
     
-    graph2 = tk.Frame(new)
-    graph2.grid(column=1, row=2, padx=5, pady=5, sticky='W')
+    graph2 = tk.Frame(graph)
+    graph2.grid(column=0, row=2, padx=5, pady=5, sticky='W')
     
-    fig = Figure(figsize = (6, 3.5), dpi = 100)
+    fig = Figure(figsize = ((screen_width/1.4)*px, (screen_height/3.5)*px), dpi = 100)
     y = [1,100,50,200,400]
     x = ["12 oct","13 oct", "14 oct", "15 oct", "16 oct"]
+    
     plot1 = fig.add_subplot(111, xlabel="Date", ylabel="Volts")
+    fig.tight_layout()
     plot1.plot(x,y)
     
     canvas2 = FigureCanvasTkAgg(fig, master=graph2)  
@@ -98,12 +110,12 @@ def channelPage(channelNumber):
     now = datetime.now() 
     dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
     datAndTim = ttk.Label(new, text=dt_string, font=("",10,""), background='#DBD9D5')
-    datAndTim.grid(column=1, row=5, padx=5, pady=5, sticky='E')
+    datAndTim.grid(column=2, row=5, padx=5, pady=5, sticky='E')
     
     ARTRONIFS = ttk.Label(new, text="Artronifs", font=("",10,"italic"), background='#DBD9D5')
-    ARTRONIFS.grid(column=1, row=6, padx=5, pady=5, sticky='E')
+    ARTRONIFS.grid(column=2, row=6, padx=5, pady=5, sticky='E')
     
-    root.eval(f'tk::PlaceWindow {str(new)} center')
+    # root.eval(f'tk::PlaceWindow {str(new)} center')
 
 def configureSection(frame0):
     

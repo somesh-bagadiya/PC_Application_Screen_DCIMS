@@ -8,6 +8,8 @@ from datetime import datetime
 import tkinter.font as tkFont
 from tkinter import messagebox
 from PIL import Image,ImageTk
+import socket
+# from time import sleep
 
 root = tk.Tk()
 root.configure(bg='#DBD9D5')
@@ -26,11 +28,24 @@ flashVar = tk.IntVar()
 eepromVar = tk.IntVar() 
 displayVar = tk.IntVar()
 statusArr = [0,0,1,0,1,0]
-configure_bytes = "START:"
-date_selected = ""
+all_data = []
+curr_page_no = 0
+status= ""
+data_table = []
+configure_bytes = ""
 
 greenDot = tk.PhotoImage(file="./green.png")
 blackDot = tk.PhotoImage(file="./black.png")
+
+host = "192.168.100.10"
+port = 9760
+addr = (host, port)
+
+client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+client.sendto(b"Ping", addr)
+data = b"Hello!!"
+client.sendto(data, addr)
+response = client.recvfrom(9)
 
 def goHome(new):
     new.destroy()
@@ -116,8 +131,6 @@ def channelPage(channelNumber):
     
     ARTRONIFS = ttk.Label(new, text="Artronifs", font=("",10,"italic"), background='#DBD9D5')
     ARTRONIFS.grid(column=2, row=6, padx=5, pady=5, sticky='E')
-    
-    # root.eval(f'tk::PlaceWindow {str(new)} center')
 
 def configureFunction(timeEnt, dateEnt):
     global configure_bytes
@@ -125,15 +138,12 @@ def configureFunction(timeEnt, dateEnt):
     date_selected = str(dateEnt.get_date())
     date_selected = date_selected.split("-")
     date_selected = date_selected[2] + date_selected[1] + date_selected[0][2:]
-    
     time = str(timeEnt.get())
     clr = clrVar.get()
-    
     if(time == 'HH:MM:SS'):
         messagebox.showerror("Error", "Please enter time")
         return False
     time = time.split(":")
-    
     if(int(time[0]) < 24 and int(time[1]) < 60 and int(time[2]) < 60):
         configure_bytes = "START:" + str(time[2]) + str(time[1]) + str(time[0]) + '01' + str(date_selected) + str(clr)
     else:
@@ -142,7 +152,7 @@ def configureFunction(timeEnt, dateEnt):
     print("in configure", configure_bytes)
 
 def configureSection(frame0):
-    global configure_bytes, date_selected
+    global configure_bytes
         
     def on_time_entry_click(event):
        if timeEnt.get() == "HH:MM:SS":
@@ -172,7 +182,7 @@ def configureSection(frame0):
     
     configButton = tk.Button(frame0, text = 'Configure',  font=("",12,"bold"), background="#92D050", foreground="white", command = lambda : configureFunction(timeEnt, dateEnt))
     configButton.grid(column=0, row=0, columnspan = 2, padx=5, pady=5, sticky=tk.W + tk.E)
-
+    
 def statusShow(radioFrame):
     global statusArr
     
@@ -214,8 +224,8 @@ def statusShow(radioFrame):
     displayLabel = ttk.Label(radioFrame, text="Display", background='#DBD9D5')
     displayLabel.grid(column=5, row=1)
 
-
 def create_table(frame1):
+    global data_table
     def on_canvas_configure(event):
         canvas.config(scrollregion=canvas.bbox("all"))
 
@@ -229,52 +239,6 @@ def create_table(frame1):
     for col, header_text in enumerate(header_labels):
         label = tk.Label(frame, text=header_text, padx=10, pady=5, relief=tk.RIDGE, font=("", 10, "bold"))
         label.grid(row=0, column=col, sticky="nsew")
-
-    data_table = [
-        ("John Doe", 30, "New York",["John Doe",1,2,3,4,5], 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York"),
-        ("John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York"),
-        ("John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York"),
-        ("John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York"),
-        ("John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York"),
-        ("John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York"),
-        ("John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York"),
-        ("John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York"),
-        ("John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York"),
-        ("John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York"),
-        ("John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York"),
-        ("John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York"),
-        ("John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York","John Doe", 30, "New York"),
-        ("Alice Smith", 25, "Los Angeles"),
-        ("Bob Johnson", 35, "Chicago"),
-        ("John Doe", 30, "New York"),
-        ("Alice Smith", 25, "Los Angeles"),
-        ("Bob Johnson", 35, "Chicago"),
-        ("John Doe", 30, "New York"),
-        ("Alice Smith", 25, "Los Angeles"),
-        ("Bob Johnson", 35, "Chicago"),
-        ("John Doe", 30, "New York"),
-        ("Alice Smith", 25, "Los Angeles"),
-        ("Bob Johnson", 35, "Chicago"),
-        ("John Doe", 30, "New York"),
-        ("Alice Smith", 25, "Los Angeles"),
-        ("Bob Johnson", 35, "Chicago"),
-        ("John Doe", 30, "New York"),
-        ("Alice Smith", 25, "Los Angeles"),
-        ("Bob Johnson", 35, "Chicago"),
-        ("John Doe", 30, "New York"),
-        ("Alice Smith", 25, "Los Angeles"),
-        ("Bob Johnson", 35, "Chicago"),
-        ("John Doe", 30, "New York"),
-        ("Alice Smith", 25, "Los Angeles"),
-        ("Bob Johnson", 35, "Chicago"),("John Doe", 30, "New York"),
-        ("Alice Smith", 25, "Los Angeles"),
-        ("Bob Johnson", 35, "Chicago"),("John Doe", 30, "New York"),
-        ("Alice Smith", 25, "Los Angeles"),
-        ("Bob Johnson", 35, "Chicago"),
-        ("John Doe", 30, "New York"),
-        ("Alice Smith", 25, "Los Angeles"),
-        ("Bob Johnson", 35, "Chicago"),
-    ]
 
     for row, row_data in enumerate(data_table, start=1):
         for col, cell_data in enumerate(row_data):
@@ -293,11 +257,169 @@ def create_table(frame1):
     for i in range(len(header_labels)):
         frame.grid_columnconfigure(i, weight=1)
     
+def processRecords(data, x):
+    global data_table
+    
+    data_record = []
+    rec_no = data[x+4]*2**24 + data[x+3]*2**16 + data[x+2]*2**8 + data[x+1]*2**0
+    data_record.append(str(rec_no))
+    
+    sec = int(10*(data[x+6] & 112)/16 + (data[x+6] & 15))
+    minu = int(10*(data[x+7] & 112)/16 + (data[x+7] & 15))
+    hours = int(10*(data[x+8] & 48)/16 + (data[x+8] & 15))
+    day = "Monday" # Hardcoded
+    date = int(10*(data[x+10] & 48)/16 + (data[x+10] & 15))
+    month = int(10*(data[x+11] & 16)/16 + (data[x+11] & 15))
+    year = int(10*(data[x+12] & 240)/16 + (data[x+12] & 15))
+    
+    date_ddmmyy = str(day) + "/" + str(month) + "/" + str(year)
+    data_record.append(date_ddmmyy)
+    
+    time_hhmmss = str(hours) + ":" + str(minu) + ":" + str(sec)
+    data_record.append(time_hhmmss)
+    
+    chn_no = []
+    imp_p = []
+    imp_n = []
+    volt = []
+    chn_act = bin(data[x+14])[2:]
+    chn_act = chn_act[::-1]
+    i = x+16
+    for j in range(len(chn_act)):
+        if(chn_act[j] == "1"):
+            chn_no.append(data[i])
+            imp_p.append(data[i+4]*2**24 + data[i+3]*2**16 + data[i+2]*2**8 + data[i+1]*2**0)
+            imp_n.append(data[i+8]*2**24 + data[i+7]*2**16 + data[i+6]*2**8 + data[1+5]*2**0)
+            volt.append(data[i+10]*2**8 + data[i+9]*2**0)
+            i+=12
+        else:
+            chn_no.append("NA")
+            imp_p.append("NA")
+            imp_n.append("NA")
+            volt.append("NA")
+            i+=1
+    
+    data_record.append(chn_no)
+    for i in range(5):
+        data_record.append(chn_no[i])
+        data_record.append(imp_p[i])
+        data_record.append(imp_n[i])
+        data_record.append(volt[i])
+    
+    print(day, ",", date, "/", month, "/", year, "-", hours, ":", minu, ":", sec)
+    print("Record No", rec_no)
+    print("Channels", chn_no)
+    print("Impedance of P", imp_p)
+    print("Impedance of n", imp_n)
+    print("Voltage", volt)
+    print()
+    data_table.append(tuple(data_record))
+
+def confirmRecord(data, byt_data, x):
+    global buffer
+    if(b'\t' == byt_data[x+5] and b'\t' == byt_data[x+13] and b'\t' == byt_data[x+15]):
+        cur_frame_len = countNoOfChannels(x,data)
+        data_len = len(byt_data)
+        if(cur_frame_len > data_len-x):
+            buffer = data[x:]
+            processBuffer()
+            return False
+        return True
+    return False
+
+def countNoOfChannels(x,data):
+    chn_act = bin(data[x+14])[2:]
+    count=16
+    for i in range(len(chn_act)):
+        if(chn_act[i] == "1"):
+            count+=12
+        else:
+            count+=1
+    return count
+
+def processBuffer():
+    global buffer, curr_page_no, all_data
+    buffer_data = []
+    i = 0
+    try:
+        buffer_data = list(all_data[curr_page_no+1])
+    except IndexError:
+        print("out of pages")
+        return False
+    byt_data_new = [bytes([b]) for b in buffer_data]
+    if(buffer!=""):
+        for i in range(len(byt_data_new)):
+            if b'\n' == byt_data_new[i]:
+                break
+            
+        buffer = buffer + buffer_data[:i]
+        cur_frame_len_ideal = countNoOfChannels(0,buffer)
+        print(cur_frame_len_ideal, len(buffer))
+        
+        if(cur_frame_len_ideal == len(buffer)):
+            processRecords(buffer, 0)
+            print("Processed buffer")
+        else:
+            print("buffer discarded")
+            buffer = ""
+            return False
+            
+        buffer = ""
+
+def processData(data, flag):
+    global buffer
+    if(flag):
+        data = data[6:]
+    
+    frame_size = []
+    byt_data = [bytes([b]) for b in data]
+    
+    for i in range(len(byt_data)):
+        if b'\n' == byt_data[i]:
+            frame_size.append(i)
+
+    for i in frame_size:
+        rec_flag = confirmRecord(data, byt_data, i)
+        if(rec_flag):
+            processRecords(data, i)
+        else:
+            continue
+
+def readFunction():
+    global all_data, curr_page_no, frame1
+    nop_resp = client.recvfrom(20) # number of pages
+    nop_total = nop_resp[0]
+
+    nop = nop_total[16]*2**24 + nop_total[15]*2**16 + nop_total[14]*2**8 + nop_total[13]*2**0
+    all_data = []
+    for i in range(nop+1): # +1 for END
+        client.sendto(b"Y", addr)
+        data = client.recvfrom(262)
+        data = data[0]
+        all_data.append(data)
+
+    for i in range(len(all_data)):
+        data = all_data[i]
+        curr_page_no = i
+        if(i==0):
+            processData(data, True)
+        else:
+            processData(data, False)
+    
+    readAndOther(frame1)
+    
+    client.sendto(b'Status?', addr)
+    status = client.recvfrom(16)
+    print("Status", status)
+    
+    client.sendto(b'Exit', addr)
+    exit_socket = client.recvfrom(12)
+    print("Exit", exit_socket)
 
 def readAndOther(frame1):
     global values
     
-    readButton = tk.Button(frame1, text = 'Read', width=10, font=("",10,"bold"), background="#92D050", foreground="white")
+    readButton = tk.Button(frame1, text = 'Read', width=10, font=("",10,"bold"), background="#92D050", foreground="white", command=readFunction)
     readButton.grid(column=0, row=0, padx=5, pady=5, sticky="W")
     
     downButton = tk.Button(frame1, text = 'Download', width=10, font=("",10,"bold"), background="#6FB791", foreground="white")
@@ -335,6 +457,16 @@ def submitPass():
     if len(password.get()) != 4:
         messagebox.showerror("Error", "Incorrect password")
         password.set("")
+    if len(password.get()) == 4:
+        passw = password.get()
+        client.sendto(passw, addr)
+        password_resp = client.recvfrom(10)
+        if password_resp[0] == b"SUCCESS":
+            print("correct pass")
+        else:
+            print("incorrect pass, exit")
+            messagebox.showerror("Error", "Incorrect password")
+            password.set("")
         
 def on_entry_click(event):
    if passwordEnt.get() == "----":
@@ -345,7 +477,6 @@ def on_focus_out(event):
    if passwordEnt.get() == "":
       passwordEnt.insert(0, "----")
       passwordEnt.configure(foreground="white")        
-
 
 frame0 = tk.LabelFrame(root, borderwidth=2, background='#DBD9D5')
 frame0.grid(column=0, row=1, padx=5, pady=5, sticky='N')
@@ -391,34 +522,4 @@ root.mainloop()
 # Time manual input and validation?
 # pass is 1947
 # unless read is clisked do not alow clear record
-# 0a new line char, 09 tab 
-
-# table = tk.Frame(frame1, borderwidth=2, width = 1200, height=400)
-# table.grid(column=0, row=1, columnspan=2, sticky='W')
-# # table.grid_propagate(0)
-
-# treev = ttk.Treeview(table,  show='tree')
-# treev.grid(column=0, row=0)
-# # treev.config(width=400)
-
-# style = ttk.Style(table)
-# style.theme_use("alt")
-# style.configure("Treeview.Heading", background="#A4BEC6", foreground="black")
-
-# verscrlbar = tk.Scrollbar(table, orient ="vertical", command = treev.yview, width=20)
-# verscrlbar.grid(column=1, row=0, sticky=tk.N+tk.S)
-
-# horiscrlbar = tk.Scrollbar(table, orient ="horizontal", command = treev.xview, width=20)
-# horiscrlbar.grid(column=0, row=1, sticky=tk.W+tk.E)
-
-# treev.configure(yscrollcommand = verscrlbar.set, xscrollcommand = horiscrlbar.set)
-
-# a = list(range(1,25))
-# treev["columns"] = a
-# treev['show'] = 'headings'
-
-# print(treev["columns"])
-# for i in treev["columns"]:
-#     treev.column("{}".format(i), minwidth=50, width=60, stretch=0, anchor ='c')
-#     treev.heading("{}".format(i), text ="Head {}".format(i))
-#     treev.insert("", 'end', text ="L1", values = a) 
+# 0a new line char, 09 tab

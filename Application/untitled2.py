@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Sep 23 12:12:34 2023
+
+@author: ARTRONIFS
+"""
+
 from tkinter import ttk
 import tkinter as tk
 from tkcalendar import DateEntry
@@ -34,6 +41,8 @@ status= ""
 data_table = []
 configure_bytes = ""
 board_status = ""
+passw = ""
+passFlag = ""
 
 greenDot = tk.PhotoImage(file="./green.png")
 blackDot = tk.PhotoImage(file="./black.png")
@@ -42,11 +51,6 @@ host = "192.168.100.10"
 port = 9760
 addr = (host, port)
 
-client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-client.sendto(b"Ping", addr)
-data = b"Hello!!"
-client.sendto(data, addr)
-response = client.recvfrom(9)
 
 def goHome(new):
     new.destroy()
@@ -133,24 +137,72 @@ def channelPage(channelNumber):
     ARTRONIFS = ttk.Label(new, text="Artronifs", font=("",10,"italic"), background='#DBD9D5')
     ARTRONIFS.grid(column=2, row=6, padx=5, pady=5, sticky='E')
 
-def configureFunction(timeEnt, dateEnt):
-    global configure_bytes
+def processGonfigFrame(time, date):
+    configdata = [0]*14
+    configdata[0] = "S"
+    configdata[1] = "T"
+    configdata[2] = "A"
+    configdata[3] = "R"
+    configdata[4] = "T"
+    configdata[5] = ":"
     
+    y = 0
+    if(date[0] % 4 == 0):
+        y = 64
+    for i in range(len(time)):
+        x = time[i] % 10
+        time[i] = int(time[i]/10)*16 + x
+        x = date[i] % 10
+        date[i] = int(date[i]/10)*16 + x
+
+    date[1] = date[1] + y
+    
+    if(clrVar.get()):        
+        configdata[13] =  "Y"
+    else: 
+        configdata[13] = "N"
+    
+    for i in range(3):
+        configdata[6+i] = chr(time[2-i])
+        configdata[9] = chr(1)
+        configdata[10+i] = chr(date[2-i])
+
+    s = ""
+    configdata = bytes(s.join(configdata), 'utf-8')
+    return configdata
+
+def configureFunction(timeEnt, dateEnt):
+    global configure_bytes, board_status
     date_selected = str(dateEnt.get_date())
+    print(date_selected)
     date_selected = date_selected.split("-")
-    date_selected = date_selected[2] + date_selected[1] + date_selected[0][2:]
+    date_selected[0] = date_selected[0][2:]
+    date_selected = [int(i) for i in date_selected]
+    
     time = str(timeEnt.get())
-    clr = clrVar.get()
     if(time == 'HH:MM:SS'):
         messagebox.showerror("Error", "Please enter time")
         return False
     time = time.split(":")
-    if(int(time[0]) < 24 and int(time[1]) < 60 and int(time[2]) < 60):
-        configure_bytes = "START:" + str(time[2]) + str(time[1]) + str(time[0]) + '01' + str(date_selected) + str(clr)
+    time = [int(i) for i in time]
+    if(time[0] < 24 and time[1] < 60 and time[2] < 60):
+        print(time, date_selected)
+        configure_bytes = processGonfigFrame(time, date_selected)
     else:
         messagebox.showerror("Error", "Invalid Time")
     
-    print("in configure", configure_bytes)
+    # client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # command = b"Configure" # Read or Configure
+    # client.sendto(command, addr)
+    # send_recv = client.recvfrom(5)
+    # print(send_recv)
+    # client.sendto(configure_bytes, addr)
+    # send_recv = client.recvfrom(20)
+    # print(send_recv)
+    # client.sendto(b'Exit', addr)
+    # status = client.recvfrom(12)
+    
+    print("in configure", configure_bytes, status)
 
 def configureSection(frame0):
     global configure_bytes
@@ -167,7 +219,7 @@ def configureSection(frame0):
     
     dateLab = ttk.Label(frame0, text="Date", background='#DBD9D5', font=("",11,"bold"), foreground="#203864")
     dateLab.grid(column=0, row=1, padx=5, pady=5, sticky='W')
-    dateEnt=DateEntry(frame0, selectmode='day')
+    dateEnt=DateEntry(frame0, selectmode='day', date_pattern='dd-MM-yyyy')
     dateEnt.grid(column=1, row=1, padx=5, pady=5, sticky='W')
     
     timeLab = ttk.Label(frame0, text="Time", background='#DBD9D5', font=("",11,"bold"), foreground="#203864")
@@ -389,41 +441,97 @@ def processData(data, flag):
         else:
             continue
 
-def readFunction():
-    global all_data, curr_page_no, frame1
+def sendPasswordAndVerify():
+    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client.sendto(b"Ping", addr)
+    data = b"Hello!!"
+    client.sendto(data, addr)
+    response = client.recvfrom(9)
     
-    command = b"Read" # Read or Configure
-    client.sendto(command, addr)
-    
-    nop_resp = client.recvfrom(20) # number of pages
-    nop_total = nop_resp[0]
-    print(nop_total)
-    nop = nop_total[16]*2**24 + nop_total[15]*2**16 + nop_total[14]*2**8 + nop_total[13]*2**0
-    
-    all_data = []
-    for i in range(nop+1): # +1 for END
-        client.sendto(b"Y", addr)
-        data = client.recvfrom(262)
-        data = data[0]
-        all_data.append(data)
+    client.sendto(passw, addr)
+    password_resp = client.recvfrom(10)
 
-    for i in range(len(all_data)):
-        data = all_data[i]
-        curr_page_no = i
-        if(i==0):
-            processData(data, True)
-        else:
-            processData(data, False)
+def readFunction():
+    global all_data, curr_page_no, frame1, passw, passFlag
+    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    if(passw==""):
+        messagebox.showerror("Error", "Please fill in Password")
+        return None
     
-    readAndOther(frame1)
+    if(passFlag):
+        client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        command = b"Read" # Read or Configure
+        client.sendto(command, addr)
+        nop_resp = client.recvfrom(20) # number of pages
+        nop_total = nop_resp[0]
+        print(nop_total)
+        nop = nop_total[16]*2**24 + nop_total[15]*2**16 + nop_total[14]*2**8 + nop_total[13]*2**0
+        
+        all_data = []
+        for i in range(nop+1): # +1 for END
+            client.sendto(b"Y", addr)
+            data = client.recvfrom(262)
+            data = data[0]
+            all_data.append(data)
     
-    client.sendto(b'Status?', addr)
-    status = client.recvfrom(16)
-    print("Status", status)
+        for i in range(len(all_data)):
+            data = all_data[i]
+            curr_page_no = i
+            if(i==0):
+                processData(data, True)
+            else:
+                processData(data, False)
+        
+        readAndOther(frame1)
+        
+        client.sendto(b'Status?', addr)
+        status = client.recvfrom(16)
+        print("Status", status)
+        
+        client.sendto(b'Exit', addr)
+        exit_socket = client.recvfrom(12)
+        print("Exit", exit_socket)
+    else:
+        client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        client.sendto(b"Ping", addr)
+        data = b"Hello!!"
+        client.sendto(data, addr)
+        response = client.recvfrom(9)
+        
+        client.sendto(passw, addr)
+        password_resp = client.recvfrom(10)
+        
+        command = b"Read" # Read or Configure
+        client.sendto(command, addr)
+        nop_resp = client.recvfrom(20) # number of pages
+        nop_total = nop_resp[0]
+        print(nop_total)
+        nop = nop_total[16]*2**24 + nop_total[15]*2**16 + nop_total[14]*2**8 + nop_total[13]*2**0
+        
+        all_data = []
+        for i in range(nop+1): # +1 for END
+            client.sendto(b"Y", addr)
+            data = client.recvfrom(262)
+            data = data[0]
+            all_data.append(data)
     
-    client.sendto(b'Exit', addr)
-    exit_socket = client.recvfrom(12)
-    print("Exit", exit_socket)
+        for i in range(len(all_data)):
+            data = all_data[i]
+            curr_page_no = i
+            if(i==0):
+                processData(data, True)
+            else:
+                processData(data, False)
+        
+        readAndOther(frame1)
+        
+        client.sendto(b'Status?', addr)
+        status = client.recvfrom(16)
+        print("Status", status)
+        
+        client.sendto(b'Exit', addr)
+        exit_socket = client.recvfrom(12)
+        print("Exit", exit_socket)
 
 def readAndOther(frame1):
     global values
@@ -463,6 +571,14 @@ def readAndOther(frame1):
     statusShow(radioFrame)
     
 def submitPass():
+    global passw, passFlag
+    
+    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client.sendto(b"Ping", addr)
+    data = b"Hello!!"
+    client.sendto(data, addr)
+    response = client.recvfrom(9)
+    print(response)
     if len(password.get()) != 4:
         messagebox.showerror("Error", "Incorrect password")
         password.set("")
@@ -474,9 +590,11 @@ def submitPass():
         password_resp = client.recvfrom(10)
         if password_resp[0] == b"SUCCESS":
             print("correct pass")
+            passFlag = True
             messagebox.showinfo("Success", "Valid Password")
         else:
             print("incorrect pass, exit")
+            passFlag = False
             messagebox.showerror("Error", "Incorrect password")
             password.set("")
         
@@ -488,7 +606,7 @@ def on_entry_click(event):
 def on_focus_out(event):
    if passwordEnt.get() == "":
       passwordEnt.insert(0, "----")
-      passwordEnt.configure(foreground="white")          
+      passwordEnt.configure(foreground="white")        
 
 frame0 = tk.LabelFrame(root, borderwidth=2, background='#DBD9D5')
 frame0.grid(column=0, row=1, padx=5, pady=5, sticky='N')
@@ -529,3 +647,11 @@ configureSection(frame0)
 
 root.eval('tk::PlaceWindow . center')
 root.mainloop()
+
+# unless read is clisked do not alow clear record
+# Add timer in the code
+# Status update in the code (b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xef\x19\x00\x00', ('192.168.100.10', 9760))
+# Plot graph
+# Check for eror handling
+# Live or dead
+# optimization

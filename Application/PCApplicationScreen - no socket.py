@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Sep 23 12:12:34 2023
+
+@author: ARTRONIFS
+"""
+from threading import Timer
 from tkinter import ttk
 import tkinter as tk
 from tkcalendar import DateEntry
@@ -27,13 +34,17 @@ rtcVar = tk.IntVar()
 flashVar = tk.IntVar() 
 eepromVar = tk.IntVar() 
 displayVar = tk.IntVar()
-statusArr = [0,0,1,0,1,0]
 all_data = []
 curr_page_no = 0
 status= ""
 data_table = []
 configure_bytes = ""
 board_status = ""
+passw = ""
+passFlag = ""
+readFlag = False
+connection_status = "Dead"
+function_flag = False
 
 greenDot = tk.PhotoImage(file="./green.png")
 blackDot = tk.PhotoImage(file="./black.png")
@@ -42,11 +53,6 @@ host = "192.168.100.10"
 port = 9760
 addr = (host, port)
 
-client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-client.sendto(b"Ping", addr)
-data = b"Hello!!"
-client.sendto(data, addr)
-response = client.recvfrom(9)
 
 def goHome(new):
     new.destroy()
@@ -133,24 +139,86 @@ def channelPage(channelNumber):
     ARTRONIFS = ttk.Label(new, text="Artronifs", font=("",10,"italic"), background='#DBD9D5')
     ARTRONIFS.grid(column=2, row=6, padx=5, pady=5, sticky='E')
 
-def configureFunction(timeEnt, dateEnt):
-    global configure_bytes
+def processGonfigFrame(time, date):
+    global readFlag
     
+    configdata = [0]*14
+    configdata[0] = "S"
+    configdata[1] = "T"
+    configdata[2] = "A"
+    configdata[3] = "R"
+    configdata[4] = "T"
+    configdata[5] = ":"
+    
+    y = 0
+    if(date[0] % 4 == 0):
+        y = 64
+    for i in range(len(time)):
+        x = time[i] % 10
+        time[i] = int(time[i]/10)*16 + x
+        x = date[i] % 10
+        date[i] = int(date[i]/10)*16 + x
+
+    date[1] = date[1] + y
+    
+    if(clrVar.get() and not readFlag):
+        messagebox.showerror("Error", "You must read first before clearing the records.")
+        return None
+    
+    if(clrVar.get()):        
+        configdata[13] =  "Y"
+    else: 
+        configdata[13] = "N"
+    
+    for i in range(3):
+        configdata[6+i] = chr(time[2-i])
+        configdata[9] = chr(1)
+        configdata[10+i] = chr(date[2-i])
+
+    s = ""
+    configdata = bytes(s.join(configdata), 'utf-8')
+    return configdata
+
+def configureInside():
+    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    command = b"Configure" # Read or Configure
+    client.sendto(command, addr)
+    send_recv = client.recvfrom(5)
+    print(send_recv)
+    client.sendto(configure_bytes, addr)
+    send_recv = client.recvfrom(20)
+    print(send_recv)
+    client.sendto(b'Exit', addr)
+    status_1 = client.recvfrom(12)
+    print(status_1)
+
+def configureFunction(timeEnt, dateEnt):
+    global configure_bytes, board_status, function_flag
     date_selected = str(dateEnt.get_date())
+    print(date_selected)
     date_selected = date_selected.split("-")
-    date_selected = date_selected[2] + date_selected[1] + date_selected[0][2:]
+    date_selected[0] = date_selected[0][2:]
+    date_selected = [int(i) for i in date_selected]
+    
     time = str(timeEnt.get())
-    clr = clrVar.get()
     if(time == 'HH:MM:SS'):
         messagebox.showerror("Error", "Please enter time")
         return False
     time = time.split(":")
-    if(int(time[0]) < 24 and int(time[1]) < 60 and int(time[2]) < 60):
-        configure_bytes = "START:" + str(time[2]) + str(time[1]) + str(time[0]) + '01' + str(date_selected) + str(clr)
+    time = [int(i) for i in time]
+    if(time[0] < 24 and time[1] < 60 and time[2] < 60):
+        print(time, date_selected)
+        configure_bytes = processGonfigFrame(time, date_selected)
     else:
         messagebox.showerror("Error", "Invalid Time")
-    
-    print("in configure", configure_bytes)
+    if(configure_bytes != None):
+        if(passFlag and not function_flag):
+            configureInside()
+        else:
+            sendPasswordAndVerify()
+            configureInside()
+    function_flag = True
+    print("in configure", configure_bytes, status)
 
 def configureSection(frame0):
     global configure_bytes
@@ -167,7 +235,7 @@ def configureSection(frame0):
     
     dateLab = ttk.Label(frame0, text="Date", background='#DBD9D5', font=("",11,"bold"), foreground="#203864")
     dateLab.grid(column=0, row=1, padx=5, pady=5, sticky='W')
-    dateEnt=DateEntry(frame0, selectmode='day')
+    dateEnt=DateEntry(frame0, selectmode='day', date_pattern='dd-MM-yyyy')
     dateEnt.grid(column=1, row=1, padx=5, pady=5, sticky='W')
     
     timeLab = ttk.Label(frame0, text="Time", background='#DBD9D5', font=("",11,"bold"), foreground="#203864")
@@ -184,8 +252,14 @@ def configureSection(frame0):
     configButton = tk.Button(frame0, text = 'Configure',  font=("",12,"bold"), background="#92D050", foreground="white", command = lambda : configureFunction(timeEnt, dateEnt))
     configButton.grid(column=0, row=0, columnspan = 2, padx=5, pady=5, sticky=tk.W + tk.E)
     
-def statusShow(radioFrame):
-    global statusArr
+def statusShow(radioFrame, statusArr):
+    global frame1
+    print(statusArr)
+    
+    radioFrame.destroy()
+    
+    radioFrame = tk.LabelFrame(frame1, borderwidth=2, background='#DBD9D5', relief="flat")
+    radioFrame.grid(column=0, row=4, padx=5, pady=5, columnspan=2)
     
     greenImage = Image.open("./green.png")
     greenResize = greenImage.resize((15, 15))
@@ -197,7 +271,7 @@ def statusShow(radioFrame):
     
     a=0
     for i in statusArr:
-        if(i==1):
+        if(i==0):
             imgLab = tk.Label(radioFrame, image=greenImg, background='#DBD9D5')
             imgLab.image = greenImg
             imgLab.grid(column=a, row=0, padx=20)
@@ -389,12 +463,23 @@ def processData(data, flag):
         else:
             continue
 
-def readFunction():
-    global all_data, curr_page_no, frame1
-    
+def sendPasswordAndVerify():
+    global passw
+    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client.sendto(b"Ping", addr)
+    data = b"Hello!!"
+    client.sendto(data, addr)
+    response = client.recvfrom(9)
+    print(response)
+    client.sendto(passw, addr)
+    password_resp = client.recvfrom(10)
+    print(password_resp)
+    Timer(60, connectionTimeOut).start()
+
+def readInside(radioFrame):
+    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     command = b"Read" # Read or Configure
     client.sendto(command, addr)
-    
     nop_resp = client.recvfrom(20) # number of pages
     nop_total = nop_resp[0]
     print(nop_total)
@@ -406,10 +491,8 @@ def readFunction():
         data = client.recvfrom(262)
         data = data[0]
         all_data.append(data)
-
-    for i in range(len(all_data)):
+    # for i in range(len(all_data)):
         data = all_data[i]
-        curr_page_no = i
         if(i==0):
             processData(data, True)
         else:
@@ -419,16 +502,43 @@ def readFunction():
     
     client.sendto(b'Status?', addr)
     status = client.recvfrom(16)
-    print("Status", status)
+    status = status[0]
+    print(status)
+    statusArr = [1]*6
+    j = 0
+    for i in range(0,12,2):
+        statusArr[j] = status[i] or status[i+1]
+        j+=1
+       
+    print("Status", status, statusArr)
+    statusShow(radioFrame, statusArr)
     
     client.sendto(b'Exit', addr)
     exit_socket = client.recvfrom(12)
     print("Exit", exit_socket)
+    
+def readFunction(radioFrame):
+    global all_data, curr_page_no, frame1, passw, passFlag, readFlag, function_flag
+    if(passw==""):
+        messagebox.showerror("Error", "Please fill in Password")
+        return None
+    
+    if(passFlag and not function_flag):
+        readInside(radioFrame)
+    else:
+        sendPasswordAndVerify()
+        readInside(radioFrame)
+        
+    readFlag = True
+    function_flag = True
 
 def readAndOther(frame1):
     global values
     
-    readButton = tk.Button(frame1, text = 'Read', width=10, font=("",10,"bold"), background="#92D050", foreground="white", command=readFunction)
+    radioFrame = tk.LabelFrame(frame1, borderwidth=2, background='#DBD9D5', relief="flat")
+    radioFrame.grid(column=0, row=4, padx=5, pady=5, columnspan=2)
+    
+    readButton = tk.Button(frame1, text = 'Read', width=10, font=("",10,"bold"), background="#92D050", foreground="white", command= lambda: readFunction(radioFrame))
     readButton.grid(column=0, row=0, padx=5, pady=5, sticky="W")
     
     downButton = tk.Button(frame1, text = 'Download', width=10, font=("",10,"bold"), background="#6FB791", foreground="white")
@@ -457,12 +567,25 @@ def readAndOther(frame1):
     ch5 = tk.Button(chnFrame, text = 'CH5',  font=("",10,""), command= lambda: channelPage(5), background="#9FF961", foreground="#424EBC")
     ch5.grid(column=4, row=0, padx=23)
     
-    radioFrame = tk.LabelFrame(frame1, borderwidth=2, background='#DBD9D5', relief="flat")
-    radioFrame.grid(column=0, row=4, padx=5, pady=5, columnspan=2)
-    
-    statusShow(radioFrame)
-    
+    statusArr = [1]*6
+    statusShow(radioFrame, statusArr)
+
+def connectionTimeOut():
+    global passFlag, connectionStatus
+    passFlag = False
+    connection_status = " Live "
+    connectionStatus.configure(text=connection_status)
+    print(" Connection timedout")
+
 def submitPass():
+    global passw, passFlag
+    
+    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client.sendto(b"Ping", addr)
+    data = b"Hello!!"
+    client.sendto(data, addr)
+    response = client.recvfrom(9)
+    print(response)
     if len(password.get()) != 4:
         messagebox.showerror("Error", "Incorrect password")
         password.set("")
@@ -474,9 +597,15 @@ def submitPass():
         password_resp = client.recvfrom(10)
         if password_resp[0] == b"SUCCESS":
             print("correct pass")
+            passFlag = True
             messagebox.showinfo("Success", "Valid Password")
+            Timer(60, connectionTimeOut).start()
+            connection_status = " Live "
+            connectionStatus.configure(background="#6FB791")
+            connectionStatus.configure(text=connection_status)
         else:
             print("incorrect pass, exit")
+            passFlag = False
             messagebox.showerror("Error", "Incorrect password")
             password.set("")
         
@@ -488,7 +617,7 @@ def on_entry_click(event):
 def on_focus_out(event):
    if passwordEnt.get() == "":
       passwordEnt.insert(0, "----")
-      passwordEnt.configure(foreground="white")          
+      passwordEnt.configure(foreground="white")        
 
 frame0 = tk.LabelFrame(root, borderwidth=2, background='#DBD9D5')
 frame0.grid(column=0, row=1, padx=5, pady=5, sticky='N')
@@ -506,7 +635,7 @@ connFrame = tk.LabelFrame(root, relief="flat", background='#DBD9D5')
 connFrame.grid(column=3, row=0, padx=5, pady=5, sticky='E')
 connection = ttk.Label(connFrame, text="Connection:", font=("",12,"bold"), background='#DBD9D5', foreground="#203864")
 connection.grid(column=0, row=0, sticky='E')
-connectionStatus = ttk.Label(connFrame, text=" Live ", font=("",11,""), background="#6FB791", foreground="white", relief="sunken")
+connectionStatus = ttk.Label(connFrame, text=" {} ".format(connection_status), font=("",11,""), background="#D43A35", foreground="white", relief="sunken")
 connectionStatus.grid(column=1, row=0, padx=5, pady=5, sticky='W')
 
 passFrame = tk.LabelFrame(root, relief="flat", background='#DBD9D5')
@@ -529,3 +658,8 @@ configureSection(frame0)
 
 root.eval('tk::PlaceWindow . center')
 root.mainloop()
+
+# Plot graph
+# Check for eror handling
+# Anypoint of time if no response show connection as dead
+# optimization

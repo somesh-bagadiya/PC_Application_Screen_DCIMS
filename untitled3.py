@@ -10,3 +10,6 @@ def exitfunc():
 Timer(5, exitfunc).start() # exit in 5 seconds
 
 print("Hello")
+for i in range(10):
+    time.sleep(1)
+    print(i)

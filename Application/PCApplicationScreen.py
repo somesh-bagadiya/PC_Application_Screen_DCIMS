@@ -58,7 +58,7 @@ host = "192.168.100.10"
 port = 9760
 addr = (host, port)
 
-socket.setdefaulttimeout(3)
+socket.setdefaulttimeout(10)
 
 def goHome(new):
     new.destroy()
@@ -881,7 +881,3 @@ calibarateSection(frame2)
 
 root.eval('tk::PlaceWindow . center')
 root.mainloop()
-
-# Size of the graph must be fixed
-# LAbels on the graph
-# Reset timer after ebvery command
